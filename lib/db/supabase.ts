@@ -1,0 +1,185 @@
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env";
+import type { Photo, PhotoDraft, PhotoPatch, Season } from "@/lib/types";
+
+const BUCKET = "photos";
+
+let client: SupabaseClient | null = null;
+
+function supabase(): SupabaseClient {
+  if (!client) {
+    client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return client;
+}
+
+interface SupabaseRow {
+  id: string;
+  season: Season;
+  caption: string;
+  image_path: string;
+  width: number;
+  height: number;
+  blur_data_url: string;
+  sort_order: number;
+  created_at: string;
+}
+
+function publicUrl(imagePath: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(
+    imagePath,
+  )}`;
+}
+
+function toPhoto(row: SupabaseRow): Photo {
+  return {
+    id: row.id,
+    season: row.season,
+    caption: row.caption,
+    imagePath: row.image_path,
+    imageUrl: publicUrl(row.image_path),
+    width: row.width,
+    height: row.height,
+    blurDataUrl: row.blur_data_url,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+  };
+}
+
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/avif": "avif",
+  "image/gif": "gif",
+};
+
+export const supabaseDb = {
+  async listPhotos(season?: Season): Promise<Photo[]> {
+    let query = supabase()
+      .from("photos")
+      .select("*")
+      .order("sort_order", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (season) query = query.eq("season", season);
+    const { data, error } = await query;
+    if (error) throw new Error(`Failed to list photos: ${error.message}`);
+    return (data as SupabaseRow[]).map(toPhoto);
+  },
+
+  async getPhoto(id: string): Promise<Photo | null> {
+    const { data, error } = await supabase()
+      .from("photos")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(`Failed to get photo: ${error.message}`);
+    return data ? toPhoto(data as SupabaseRow) : null;
+  },
+
+  async getLatest(): Promise<Photo | null> {
+    const { data, error } = await supabase()
+      .from("photos")
+      .select("*")
+      .order("sort_order", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`Failed to get latest photo: ${error.message}`);
+    return data ? toPhoto(data as SupabaseRow) : null;
+  },
+
+  async getCover(season: Season): Promise<Photo | null> {
+    const { data, error } = await supabase()
+      .from("photos")
+      .select("*")
+      .eq("season", season)
+      .order("sort_order", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`Failed to get cover: ${error.message}`);
+    return data ? toPhoto(data as SupabaseRow) : null;
+  },
+
+  async createPhoto(draft: PhotoDraft): Promise<Photo> {
+    const ext = MIME_EXT[draft.file.type] ?? "jpg";
+    const objectPath = `${randomUUID()}.${ext}`;
+    const bytes = Buffer.from(await draft.file.arrayBuffer());
+
+    const { error: uploadError } = await supabase().storage
+      .from(BUCKET)
+      .upload(objectPath, bytes, {
+        contentType: draft.file.type || "image/jpeg",
+        upsert: false,
+      });
+    if (uploadError) {
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
+    }
+
+    const { data, error } = await supabase()
+      .from("photos")
+      .insert({
+        season: draft.season,
+        caption: draft.caption,
+        image_path: objectPath,
+        width: draft.width,
+        height: draft.height,
+        blur_data_url: draft.blurDataUrl,
+        sort_order: Date.now(),
+      })
+      .select()
+      .single();
+    if (error) {
+      await supabase().storage
+        .from(BUCKET)
+        .remove([objectPath])
+        .catch(() => {});
+      throw new Error(`Failed to save photo: ${error.message}`);
+    }
+    return toPhoto(data as SupabaseRow);
+  },
+
+  async updatePhoto(id: string, patch: PhotoPatch): Promise<Photo | null> {
+    const { data, error } = await supabase()
+      .from("photos")
+      .update({
+        ...(patch.caption !== undefined ? { caption: patch.caption } : {}),
+        ...(patch.season !== undefined ? { season: patch.season } : {}),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(`Failed to update photo: ${error.message}`);
+    return data ? toPhoto(data as SupabaseRow) : null;
+  },
+
+  async deletePhoto(id: string): Promise<void> {
+    const photo = await this.getPhoto(id);
+    if (!photo) return;
+    const { error } = await supabase().from("photos").delete().eq("id", id);
+    if (error) throw new Error(`Failed to delete photo: ${error.message}`);
+    await supabase()
+      .storage.from(BUCKET)
+      .remove([photo.imagePath])
+      .catch(() => {});
+  },
+
+  async reorderPhotos(orderedIds: string[]): Promise<void> {
+    const { data, error: listError } = await supabase()
+      .from("photos")
+      .select("id");
+    if (listError) throw new Error(`Failed to list photos: ${listError.message}`);
+    const count = (data as { id: string }[]).length;
+    for (const [index, id] of orderedIds.entries()) {
+      const { error } = await supabase()
+        .from("photos")
+        .update({ sort_order: (count - index) * 10 })
+        .eq("id", id);
+      if (error) throw new Error(`Failed to reorder photos: ${error.message}`);
+    }
+  },
+};
