@@ -6,12 +6,13 @@ import { Hero } from "@/components/public/home/Hero";
 import { Reveal } from "@/components/public/Reveal";
 import { PhotoEntry } from "@/components/public/PhotoEntry";
 import { SeasonCards } from "@/components/public/SeasonCards";
-import { getPhotos } from "@/lib/data";
+import { getPhotos, getHeroBackground } from "@/lib/data";
 
 export default async function HomePage() {
   const photos = await getPhotos();
   const featured = photos.slice(0, 6);
   const cover = photos[0] ?? null;
+  const heroBackground = await getHeroBackground();
 
   const counts: Record<Season, number> = {
     winter: 0,
@@ -30,7 +31,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero cover={cover} />
+      <Hero cover={cover} background={heroBackground} />
 
       <section id="featured" className="container-feed py-24 sm:py-32">
         <Reveal>

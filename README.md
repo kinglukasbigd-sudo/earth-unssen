@@ -85,6 +85,10 @@ It creates:
 - read access for everyone, write access for signed-in users (admin);
 - the public `photos` storage bucket with matching policies.
 
+Then run [`supabase/migrations/0002_hero_settings.sql`](supabase/migrations/0002_hero_settings.sql)
+the same way — it adds the `public.settings` row used for the studio's
+**Start screen** background window.
+
 > The table and storage are intentionally *not* exposed through Supabase's
 > auto-generated REST endpoints (`*` privileges were not granted), so the public
 > site cannot be queried directly. All reads go through Next.js; writes only

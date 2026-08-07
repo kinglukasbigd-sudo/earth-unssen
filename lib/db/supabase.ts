@@ -55,6 +55,33 @@ function toPhoto(row: SupabaseRow): Photo {
   };
 }
 
+interface SettingsRow {
+  hero_image_path: string | null;
+  hero_image_width: number | null;
+  hero_image_height: number | null;
+  hero_blur_data_url: string | null;
+}
+
+function heroPhoto(
+  path: string,
+  width: number,
+  height: number,
+  blurDataUrl: string,
+): Photo {
+  return {
+    id: "hero",
+    season: "winter",
+    caption: "",
+    imagePath: path,
+    imageUrl: publicUrl(path),
+    width,
+    height,
+    blurDataUrl,
+    sortOrder: 0,
+    createdAt: "",
+  };
+}
+
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -190,6 +217,108 @@ export const supabaseDb = {
         .update({ sort_order: (count - index) * 10 })
         .eq("id", id);
       if (error) throw new Error(`Failed to reorder photos: ${error.message}`);
+    }
+  },
+
+  async getHeroBackground(): Promise<Photo | null> {
+    const { data, error } = await supabase()
+      .from("settings")
+      .select(
+        "hero_image_path, hero_image_width, hero_image_height, hero_blur_data_url",
+      )
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw new Error(`Failed to get settings: ${error.message}`);
+    const settings = data as SettingsRow | null;
+    if (!settings?.hero_image_path) return null;
+    return heroPhoto(
+      settings.hero_image_path,
+      settings.hero_image_width ?? 2048,
+      settings.hero_image_height ?? 1365,
+      settings.hero_blur_data_url ?? "",
+    );
+  },
+
+  async setHeroBackground(draft: PhotoDraft): Promise<Photo> {
+    const ext = MIME_EXT[draft.file.type] ?? "jpg";
+    const objectPath = `hero-${randomUUID()}.${ext}`;
+    const bytes = Buffer.from(await draft.file.arrayBuffer());
+    const client = await adminSupabase();
+
+    const { error: uploadError } = await client.storage
+      .from(BUCKET)
+      .upload(objectPath, bytes, {
+        contentType: draft.file.type || "image/jpeg",
+        upsert: false,
+      });
+    if (uploadError) {
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
+    }
+
+    const { data: previous, error: readError } = await client
+      .from("settings")
+      .select("hero_image_path")
+      .eq("id", 1)
+      .maybeSingle();
+    if (readError) {
+      await client.storage.from(BUCKET).remove([objectPath]).catch(() => {});
+      throw new Error(`Failed to read settings: ${readError.message}`);
+    }
+
+    const { error } = await client
+      .from("settings")
+      .update({
+        hero_image_path: objectPath,
+        hero_image_width: draft.width,
+        hero_image_height: draft.height,
+        hero_blur_data_url: draft.blurDataUrl,
+      })
+      .eq("id", 1);
+    if (error) {
+      await client.storage.from(BUCKET).remove([objectPath]).catch(() => {});
+      throw new Error(`Failed to save hero background: ${error.message}`);
+    }
+
+    if (previous?.hero_image_path && previous.hero_image_path !== objectPath) {
+      await client.storage
+        .from(BUCKET)
+        .remove([previous.hero_image_path])
+        .catch(() => {});
+    }
+
+    return heroPhoto(
+      objectPath,
+      draft.width,
+      draft.height,
+      draft.blurDataUrl,
+    );
+  },
+
+  async clearHeroBackground(): Promise<void> {
+    const client = await adminSupabase();
+    const { data, error: readError } = await client
+      .from("settings")
+      .select("hero_image_path")
+      .eq("id", 1)
+      .maybeSingle();
+    if (readError) throw new Error(`Failed to read settings: ${readError.message}`);
+
+    const { error } = await client
+      .from("settings")
+      .update({
+        hero_image_path: null,
+        hero_image_width: null,
+        hero_image_height: null,
+        hero_blur_data_url: null,
+      })
+      .eq("id", 1);
+    if (error) throw new Error(`Failed to clear hero background: ${error.message}`);
+
+    if (data?.hero_image_path) {
+      await client.storage
+        .from(BUCKET)
+        .remove([data.hero_image_path])
+        .catch(() => {});
     }
   },
 };

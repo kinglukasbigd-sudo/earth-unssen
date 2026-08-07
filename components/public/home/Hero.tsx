@@ -8,16 +8,18 @@ import { ScrollCue } from "@/components/public/ScrollCue";
 
 interface HeroProps {
   cover: Photo | null;
+  background?: Photo | null;
 }
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-export function Hero({ cover }: HeroProps) {
+export function Hero({ cover, background }: HeroProps) {
   const ref = useRef<HTMLElement>(null);
   const { scrollY } = useScroll();
   const bgY = useTransform(scrollY, [0, 900], [0, 220]);
   const contentY = useTransform(scrollY, [0, 500], [0, 70]);
   const contentOpacity = useTransform(scrollY, [0, 420], [1, 0]);
+  const bg = background ?? cover;
 
   return (
     <section
@@ -25,7 +27,7 @@ export function Hero({ cover }: HeroProps) {
       className="relative flex min-h-[100svh] flex-col justify-end overflow-hidden bg-ink"
     >
       <motion.div className="absolute inset-0" style={{ y: bgY }}>
-        {cover ? (
+        {bg ? (
           <motion.div
             className="absolute inset-0"
             initial={{ scale: 1.08 }}
@@ -33,7 +35,7 @@ export function Hero({ cover }: HeroProps) {
             transition={{ duration: 2.2, ease: EASE }}
           >
             <PhotoImage
-              photo={cover}
+              photo={bg}
               fill
               priority
               sizes="100vw"

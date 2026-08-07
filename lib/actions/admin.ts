@@ -104,6 +104,69 @@ export async function uploadPhotoAction(
   }
 }
 
+export async function setHeroBackgroundAction(
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string; photo?: Photo }> {
+  try {
+    await requireAdmin();
+
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { ok: false, error: "Choose an image to upload." };
+    }
+    if (!file.type.startsWith("image/")) {
+      return { ok: false, error: "That file is not an image." };
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return { ok: false, error: "Image is too large (max 25 MB)." };
+    }
+
+    const width = Number(formData.get("width") ?? 0);
+    const height = Number(formData.get("height") ?? 0);
+    if (
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width < 1 ||
+      height < 1
+    ) {
+      return { ok: false, error: "Could not read the image dimensions." };
+    }
+
+    const photo = await db.setHeroBackground({
+      season: "winter",
+      caption: "",
+      file,
+      width,
+      height,
+      blurDataUrl: String(formData.get("blurDataUrl") ?? "").slice(
+        0,
+        MAX_BLUR_DATA,
+      ),
+    });
+
+    revalidateSite();
+    return { ok: true, photo };
+  } catch (error) {
+    console.error("[admin] hero background upload failed", error);
+    return { ok: false, error: "Could not save the new background." };
+  }
+}
+
+export async function clearHeroBackgroundAction(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  try {
+    await requireAdmin();
+    await db.clearHeroBackground();
+    revalidateSite();
+    return { ok: true };
+  } catch (error) {
+    console.error("[admin] hero background clear failed", error);
+    return { ok: false, error: "Could not reset the background." };
+  }
+}
+
 export async function updatePhotoAction(input: {
   id: string;
   caption?: string;
@@ -131,7 +194,6 @@ export async function updatePhotoAction(input: {
     return { ok: false, error: "Could not save changes." };
   }
 }
-
 export async function deletePhotoAction(
   id: string,
 ): Promise<{ ok: boolean; error?: string }> {

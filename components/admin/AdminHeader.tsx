@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLink, Images, LogOut, UploadCloud } from "lucide-react";
+import { ExternalLink, Images, LayoutPanelTop, LogOut, UploadCloud } from "lucide-react";
 import { logoutAction } from "@/lib/actions/admin";
 
 const TABS = [
   { href: "/admin", label: "Manage", icon: Images },
   { href: "/admin/upload", label: "Upload", icon: UploadCloud },
+  { href: "/admin/start-screen", label: "Start screen", icon: LayoutPanelTop },
 ];
 
 export function AdminHeader() {

@@ -19,6 +19,11 @@ export async function getCoverPhoto(season: Season): Promise<Photo | null> {
   return db.getCover(season);
 }
 
+/** Explicitly configured start-screen background, or null to use the default. */
+export async function getHeroBackground(): Promise<Photo | null> {
+  return db.getHeroBackground();
+}
+
 export async function getSeasonCounts(): Promise<Record<Season, number>> {
   const all = await db.listPhotos();
   const counts: Record<Season, number> = {

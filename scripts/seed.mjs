@@ -75,13 +75,15 @@ async function main() {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
   await fs.writeFile(path.join(UPLOADS_DIR, filename), processed);
 
-  let photos = [];
+  let db = { photos: [] };
   try {
     const raw = await fs.readFile(DB_FILE, "utf8");
-    photos = JSON.parse(raw).photos ?? [];
+    db = JSON.parse(raw);
+    db.photos = Array.isArray(db.photos) ? db.photos : [];
   } catch {
     /* fresh database */
   }
+  const photos = db.photos;
 
   photos.push({
     id,
@@ -96,7 +98,7 @@ async function main() {
   });
 
   await fs.mkdir(path.dirname(DB_FILE), { recursive: true });
-  await fs.writeFile(DB_FILE, JSON.stringify({ photos }, null, 2));
+  await fs.writeFile(DB_FILE, JSON.stringify({ photos, settings: db.settings }, null, 2));
 
   console.log(`Seeded ${filename} → season "${season}"`);
   console.log(`${width}×${height} · ${(processed.length / 1024).toFixed(0)} KB`);
