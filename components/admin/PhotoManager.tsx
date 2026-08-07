@@ -194,6 +194,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
     setDeleteId(null);
     if (res.ok) {
       toast({ title: "Photograph deleted" });
+      setPhotos((prev) => prev.filter((p) => p.id !== deleteId));
     } else {
       toast({ title: res.error ?? "Could not delete this photo." });
     }
