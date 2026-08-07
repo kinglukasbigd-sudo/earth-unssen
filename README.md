@@ -87,7 +87,9 @@ It creates:
 
 Then run [`supabase/migrations/0002_hero_settings.sql`](supabase/migrations/0002_hero_settings.sql)
 the same way — it adds the `public.settings` row used for the studio's
-**Start screen** background window.
+**Hero background** window — followed by
+[`0003_intro_settings.sql`](supabase/migrations/0003_intro_settings.sql),
+which adds the intro-cover background columns for the **Intro cover** window.
 
 > The table and storage are intentionally *not* exposed through Supabase's
 > auto-generated REST endpoints (`*` privileges were not granted), so the public

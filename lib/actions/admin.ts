@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { isAdmin, loginAdmin, logoutAdmin } from "@/lib/auth";
 import { SEASONS } from "@/lib/seasons";
-import type { Photo, PhotoPatch, Season } from "@/lib/types";
+import type { Photo, PhotoDraft, PhotoPatch, Season } from "@/lib/types";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_CAPTION = 280;
@@ -104,7 +104,8 @@ export async function uploadPhotoAction(
   }
 }
 
-export async function setHeroBackgroundAction(
+async function uploadSettingsPhoto(
+  save: (draft: PhotoDraft) => Promise<Photo>,
   formData: FormData,
 ): Promise<{ ok: boolean; error?: string; photo?: Photo }> {
   try {
@@ -132,7 +133,7 @@ export async function setHeroBackgroundAction(
       return { ok: false, error: "Could not read the image dimensions." };
     }
 
-    const photo = await db.setHeroBackground({
+    const photo = await save({
       season: "winter",
       caption: "",
       file,
@@ -147,9 +148,21 @@ export async function setHeroBackgroundAction(
     revalidateSite();
     return { ok: true, photo };
   } catch (error) {
-    console.error("[admin] hero background upload failed", error);
+    console.error("[admin] settings photo upload failed", error);
     return { ok: false, error: "Could not save the new background." };
   }
+}
+
+export async function setHeroBackgroundAction(
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string; photo?: Photo }> {
+  return uploadSettingsPhoto((draft) => db.setHeroBackground(draft), formData);
+}
+
+export async function setIntroPhotoAction(
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string; photo?: Photo }> {
+  return uploadSettingsPhoto((draft) => db.setIntroPhoto(draft), formData);
 }
 
 export async function clearHeroBackgroundAction(): Promise<{
@@ -164,6 +177,52 @@ export async function clearHeroBackgroundAction(): Promise<{
   } catch (error) {
     console.error("[admin] hero background clear failed", error);
     return { ok: false, error: "Could not reset the background." };
+  }
+}
+
+const HEX_COLOR = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i;
+
+function normalizeColor(value: string): string | null {
+  const hex = value.trim();
+  if (!HEX_COLOR.test(hex)) return null;
+  if (hex.length === 4) {
+    return `#${hex
+      .slice(1)
+      .split("")
+      .map((c) => c + c)
+      .join("")}`;
+  }
+  return hex.toLowerCase();
+}
+
+export async function setIntroColorAction(
+  color: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    const hex = normalizeColor(color);
+    if (!hex) return { ok: false, error: "Choose a valid colour." };
+    await db.setIntroColor(hex);
+    revalidateSite();
+    return { ok: true };
+  } catch (error) {
+    console.error("[admin] intro colour failed", error);
+    return { ok: false, error: "Could not save the colour." };
+  }
+}
+
+export async function clearIntroBackgroundAction(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  try {
+    await requireAdmin();
+    await db.clearIntroBackground();
+    revalidateSite();
+    return { ok: true };
+  } catch (error) {
+    console.error("[admin] intro background clear failed", error);
+    return { ok: false, error: "Could not reset the intro cover." };
   }
 }
 

@@ -1,15 +1,28 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Photo, PhotoDraft, PhotoPatch, Season } from "@/lib/types";
+import type {
+  IntroBackground,
+  Photo,
+  PhotoDraft,
+  PhotoPatch,
+  Season,
+} from "@/lib/types";
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 const DB_FILE = path.join(process.cwd(), "data", "db.json");
 
 type LocalRecord = Omit<Photo, "imageUrl">;
 
+interface LocalIntroSettings {
+  mode: "auto" | "photo" | "color";
+  photo: LocalRecord | null;
+  color: string | null;
+}
+
 interface LocalSettings {
   hero: LocalRecord | null;
+  intro: LocalIntroSettings;
 }
 
 function publicUrl(record: LocalRecord): string {
@@ -32,14 +45,31 @@ async function readDb(): Promise<{
     };
     return {
       photos: Array.isArray(parsed.photos) ? parsed.photos : [],
-      settings: { hero: parsed.settings?.hero ?? null },
+      settings: {
+        hero: parsed.settings?.hero ?? null,
+        intro: {
+          mode:
+            parsed.settings?.intro?.mode === "photo" ||
+            parsed.settings?.intro?.mode === "color"
+              ? parsed.settings.intro.mode
+              : "auto",
+          photo: parsed.settings?.intro?.photo ?? null,
+          color: parsed.settings?.intro?.color ?? null,
+        },
+      },
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { photos: [], settings: { hero: null } };
+      return {
+        photos: [],
+        settings: { hero: null, intro: { mode: "auto", photo: null, color: null } },
+      };
     }
     console.error("[local-db] failed to read database:", error);
-    return { photos: [], settings: { hero: null } };
+    return {
+      photos: [],
+      settings: { hero: null, intro: { mode: "auto", photo: null, color: null } },
+    };
   }
 }
 
@@ -212,6 +242,72 @@ export const localDb = {
         .catch(() => {});
     }
     settings.hero = null;
+    await writeDb(photos, settings);
+  },
+
+  async getIntroBackground(): Promise<IntroBackground> {
+    const { settings } = await readDb();
+    const intro = settings.intro;
+    return {
+      mode: intro.mode,
+      photo: intro.mode === "photo" && intro.photo ? toPhoto(intro.photo) : null,
+      color: intro.mode === "color" ? intro.color : null,
+    };
+  },
+
+  async setIntroPhoto(draft: PhotoDraft): Promise<Photo> {
+    const id = randomUUID();
+    const ext = MIME_EXT[draft.file.type] ?? "jpg";
+    const filename = `intro-${id}.${ext}`;
+
+    await fs.mkdir(UPLOADS_DIR, { recursive: true });
+    await fs.writeFile(
+      path.join(UPLOADS_DIR, filename),
+      Buffer.from(await draft.file.arrayBuffer()),
+    );
+
+    const record: LocalRecord = {
+      id,
+      season: "winter",
+      caption: "",
+      imagePath: filename,
+      width: draft.width,
+      height: draft.height,
+      blurDataUrl: draft.blurDataUrl,
+      sortOrder: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    const { photos, settings } = await readDb();
+    if (settings.intro.photo) {
+      await fs
+        .unlink(path.join(UPLOADS_DIR, settings.intro.photo.imagePath))
+        .catch(() => {});
+    }
+    settings.intro = { mode: "photo", photo: record, color: null };
+    await writeDb(photos, settings);
+    return toPhoto(record);
+  },
+
+  async setIntroColor(color: string): Promise<void> {
+    const { photos, settings } = await readDb();
+    if (settings.intro.photo) {
+      await fs
+        .unlink(path.join(UPLOADS_DIR, settings.intro.photo.imagePath))
+        .catch(() => {});
+    }
+    settings.intro = { mode: "color", photo: null, color };
+    await writeDb(photos, settings);
+  },
+
+  async clearIntroBackground(): Promise<void> {
+    const { photos, settings } = await readDb();
+    if (settings.intro.photo) {
+      await fs
+        .unlink(path.join(UPLOADS_DIR, settings.intro.photo.imagePath))
+        .catch(() => {});
+    }
+    settings.intro = { mode: "auto", photo: null, color: null };
     await writeDb(photos, settings);
   },
 };

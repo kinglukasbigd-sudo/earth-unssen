@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
+import type { IntroBackground } from "@/lib/types";
 import {
   LABEL_EASE,
   LIFT_EASE,
@@ -14,13 +16,19 @@ import {
  * Full-screen cover shown on the very first paint. It matches the
  * in-page transition (see PageTransition): the wordmark fades in, holds,
  * then the cover lifts away to reveal the page — a composed, editorial
- * entrance on every cold load.
+ * entrance on every cold load. The background can be a configured photo,
+ * a configured colour, or the route's default accent.
  */
-export function IntroCover() {
+export function IntroCover({ background }: { background: IntroBackground }) {
   const pathname = usePathname();
   const reduce = useReducedMotion();
   const [show, setShow] = useState(true);
   const look = lookForPath(pathname ?? "/");
+  const photo = background.mode === "photo" ? background.photo : null;
+  const bgColor =
+    background.mode === "color" && background.color
+      ? background.color
+      : look.accent;
 
   useEffect(() => {
     if (reduce) return;
@@ -36,8 +44,8 @@ export function IntroCover() {
         {show && (
           <motion.div
             id="intro-cover"
-            className="fixed inset-0 z-[96] flex origin-top flex-col items-center justify-center"
-            style={{ backgroundColor: look.accent }}
+            className="fixed inset-0 z-[96] flex origin-top flex-col items-center justify-center overflow-hidden"
+            style={{ backgroundColor: bgColor }}
             initial={{ opacity: 0 }}
             animate={{
               opacity: 1,
@@ -52,7 +60,27 @@ export function IntroCover() {
               },
             }}
           >
-            <div className="px-6 text-center">
+            {photo && (
+              <>
+                <div className="absolute inset-0">
+                  <Image
+                    src={photo.imageUrl}
+                    alt=""
+                    fill
+                    sizes="100vw"
+                    priority
+                    className="object-cover"
+                    placeholder="blur"
+                    blurDataURL={photo.blurDataUrl}
+                  />
+                </div>
+                <div
+                  aria-hidden
+                  className="absolute inset-0 bg-ink/45"
+                />
+              </>
+            )}
+            <div className="relative px-6 text-center">
               <motion.p
                 className="font-display text-4xl tracking-tight text-paper sm:text-6xl"
                 initial={{ opacity: 0, y: 16 }}

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Photo, Season } from "@/lib/types";
+import type { IntroBackground, Photo, Season } from "@/lib/types";
 
 /** All photos, newest first. Optionally filtered by season. */
 export async function getPhotos(season?: Season): Promise<Photo[]> {
@@ -22,6 +22,11 @@ export async function getCoverPhoto(season: Season): Promise<Photo | null> {
 /** Explicitly configured start-screen background, or null to use the default. */
 export async function getHeroBackground(): Promise<Photo | null> {
   return db.getHeroBackground();
+}
+
+/** Configured intro-cover background (photo, colour, or automatic). */
+export async function getIntroBackground(): Promise<IntroBackground> {
+  return db.getIntroBackground();
 }
 
 export async function getSeasonCounts(): Promise<Record<Season, number>> {

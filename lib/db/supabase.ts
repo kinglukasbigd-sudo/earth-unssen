@@ -2,7 +2,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/auth/supabase-server";
-import type { Photo, PhotoDraft, PhotoPatch, Season } from "@/lib/types";
+import type {
+  IntroBackground,
+  Photo,
+  PhotoDraft,
+  PhotoPatch,
+  Season,
+} from "@/lib/types";
 
 const BUCKET = "photos";
 
@@ -60,16 +66,22 @@ interface SettingsRow {
   hero_image_width: number | null;
   hero_image_height: number | null;
   hero_blur_data_url: string | null;
+  intro_mode: string;
+  intro_image_path: string | null;
+  intro_image_width: number | null;
+  intro_image_height: number | null;
+  intro_blur_data_url: string | null;
+  intro_color: string | null;
 }
 
-function heroPhoto(
+function settingsPhoto(
   path: string,
   width: number,
   height: number,
   blurDataUrl: string,
 ): Photo {
   return {
-    id: "hero",
+    id: "settings",
     season: "winter",
     caption: "",
     imagePath: path,
@@ -79,6 +91,30 @@ function heroPhoto(
     blurDataUrl,
     sortOrder: 0,
     createdAt: "",
+  };
+}
+
+const INTRO_COLUMNS =
+  "intro_mode, intro_image_path, intro_image_width, intro_image_height, intro_blur_data_url, intro_color";
+
+function introBackgroundFrom(row: Partial<SettingsRow> | null): IntroBackground {
+  const mode =
+    row?.intro_mode === "photo" || row?.intro_mode === "color"
+      ? row.intro_mode
+      : "auto";
+  return {
+    mode,
+    color:
+      mode === "color" && row?.intro_color ? row.intro_color : null,
+    photo:
+      mode === "photo" && row?.intro_image_path
+        ? settingsPhoto(
+            row.intro_image_path,
+            row.intro_image_width ?? 2048,
+            row.intro_image_height ?? 1365,
+            row.intro_blur_data_url ?? "",
+          )
+        : null,
   };
 }
 
@@ -231,7 +267,7 @@ export const supabaseDb = {
     if (error) throw new Error(`Failed to get settings: ${error.message}`);
     const settings = data as SettingsRow | null;
     if (!settings?.hero_image_path) return null;
-    return heroPhoto(
+    return settingsPhoto(
       settings.hero_image_path,
       settings.hero_image_width ?? 2048,
       settings.hero_image_height ?? 1365,
@@ -286,7 +322,7 @@ export const supabaseDb = {
         .catch(() => {});
     }
 
-    return heroPhoto(
+    return settingsPhoto(
       objectPath,
       draft.width,
       draft.height,
@@ -318,6 +354,139 @@ export const supabaseDb = {
       await client.storage
         .from(BUCKET)
         .remove([data.hero_image_path])
+        .catch(() => {});
+    }
+  },
+
+  async getIntroBackground(): Promise<IntroBackground> {
+    const { data, error } = await supabase()
+      .from("settings")
+      .select(INTRO_COLUMNS)
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw new Error(`Failed to get settings: ${error.message}`);
+    return introBackgroundFrom(data as Partial<SettingsRow> | null);
+  },
+
+  async setIntroPhoto(draft: PhotoDraft): Promise<Photo> {
+    const ext = MIME_EXT[draft.file.type] ?? "jpg";
+    const objectPath = `intro-${randomUUID()}.${ext}`;
+    const bytes = Buffer.from(await draft.file.arrayBuffer());
+    const client = await adminSupabase();
+
+    const { error: uploadError } = await client.storage
+      .from(BUCKET)
+      .upload(objectPath, bytes, {
+        contentType: draft.file.type || "image/jpeg",
+        upsert: false,
+      });
+    if (uploadError) {
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
+    }
+
+    const { data: previous, error: readError } = await client
+      .from("settings")
+      .select("intro_image_path")
+      .eq("id", 1)
+      .maybeSingle();
+    if (readError) {
+      await client.storage.from(BUCKET).remove([objectPath]).catch(() => {});
+      throw new Error(`Failed to read settings: ${readError.message}`);
+    }
+
+    const { error } = await client
+      .from("settings")
+      .update({
+        intro_mode: "photo",
+        intro_image_path: objectPath,
+        intro_image_width: draft.width,
+        intro_image_height: draft.height,
+        intro_blur_data_url: draft.blurDataUrl,
+        intro_color: null,
+      })
+      .eq("id", 1);
+    if (error) {
+      await client.storage.from(BUCKET).remove([objectPath]).catch(() => {});
+      throw new Error(`Failed to save intro cover: ${error.message}`);
+    }
+
+    const previousPath = (previous as Partial<SettingsRow> | null)
+      ?.intro_image_path;
+    if (previousPath && previousPath !== objectPath) {
+      await client.storage
+        .from(BUCKET)
+        .remove([previousPath])
+        .catch(() => {});
+    }
+
+    return settingsPhoto(
+      objectPath,
+      draft.width,
+      draft.height,
+      draft.blurDataUrl,
+    );
+  },
+
+  async setIntroColor(color: string): Promise<void> {
+    const client = await adminSupabase();
+    const { data: previous, error: readError } = await client
+      .from("settings")
+      .select("intro_image_path")
+      .eq("id", 1)
+      .maybeSingle();
+    if (readError) throw new Error(`Failed to read settings: ${readError.message}`);
+
+    const { error } = await client
+      .from("settings")
+      .update({
+        intro_mode: "color",
+        intro_color: color,
+        intro_image_path: null,
+        intro_image_width: null,
+        intro_image_height: null,
+        intro_blur_data_url: null,
+      })
+      .eq("id", 1);
+    if (error) throw new Error(`Failed to save intro cover: ${error.message}`);
+
+    const previousPath = (previous as Partial<SettingsRow> | null)
+      ?.intro_image_path;
+    if (previousPath) {
+      await client.storage
+        .from(BUCKET)
+        .remove([previousPath])
+        .catch(() => {});
+    }
+  },
+
+  async clearIntroBackground(): Promise<void> {
+    const client = await adminSupabase();
+    const { data, error: readError } = await client
+      .from("settings")
+      .select("intro_image_path")
+      .eq("id", 1)
+      .maybeSingle();
+    if (readError) throw new Error(`Failed to read settings: ${readError.message}`);
+
+    const { error } = await client
+      .from("settings")
+      .update({
+        intro_mode: "auto",
+        intro_color: null,
+        intro_image_path: null,
+        intro_image_width: null,
+        intro_image_height: null,
+        intro_blur_data_url: null,
+      })
+      .eq("id", 1);
+    if (error) throw new Error(`Failed to reset intro cover: ${error.message}`);
+
+    const previousPath = (data as Partial<SettingsRow> | null)
+      ?.intro_image_path;
+    if (previousPath) {
+      await client.storage
+        .from(BUCKET)
+        .remove([previousPath])
         .catch(() => {});
     }
   },

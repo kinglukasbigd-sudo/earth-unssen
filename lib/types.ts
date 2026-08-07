@@ -31,3 +31,11 @@ export interface PhotoPatch {
   season?: Season;
   caption?: string;
 }
+
+/** Configured background for the intro cover (the full-screen flash on entry). */
+export interface IntroBackground {
+  /** "auto" uses the route's default accent colour. */
+  mode: "auto" | "photo" | "color";
+  photo: Photo | null;
+  color: string | null;
+}
