@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env";
+import { createSupabaseServerClient } from "@/lib/auth/supabase-server";
 import type { Photo, PhotoDraft, PhotoPatch, Season } from "@/lib/types";
 
 const BUCKET = "photos";
@@ -14,6 +15,11 @@ function supabase(): SupabaseClient {
     });
   }
   return client;
+}
+
+/** Session-authenticated client for writes; requires the admin's cookies. */
+async function adminSupabase(): Promise<SupabaseClient> {
+  return createSupabaseServerClient();
 }
 
 interface SupabaseRow {
@@ -109,8 +115,9 @@ export const supabaseDb = {
     const ext = MIME_EXT[draft.file.type] ?? "jpg";
     const objectPath = `${randomUUID()}.${ext}`;
     const bytes = Buffer.from(await draft.file.arrayBuffer());
+    const client = await adminSupabase();
 
-    const { error: uploadError } = await supabase().storage
+    const { error: uploadError } = await client.storage
       .from(BUCKET)
       .upload(objectPath, bytes, {
         contentType: draft.file.type || "image/jpeg",
@@ -120,7 +127,7 @@ export const supabaseDb = {
       throw new Error(`Failed to upload image: ${uploadError.message}`);
     }
 
-    const { data, error } = await supabase()
+    const { data, error } = await client
       .from("photos")
       .insert({
         season: draft.season,
@@ -134,7 +141,7 @@ export const supabaseDb = {
       .select()
       .single();
     if (error) {
-      await supabase().storage
+      await client.storage
         .from(BUCKET)
         .remove([objectPath])
         .catch(() => {});
@@ -144,7 +151,8 @@ export const supabaseDb = {
   },
 
   async updatePhoto(id: string, patch: PhotoPatch): Promise<Photo | null> {
-    const { data, error } = await supabase()
+    const client = await adminSupabase();
+    const { data, error } = await client
       .from("photos")
       .update({
         ...(patch.caption !== undefined ? { caption: patch.caption } : {}),
@@ -160,22 +168,24 @@ export const supabaseDb = {
   async deletePhoto(id: string): Promise<void> {
     const photo = await this.getPhoto(id);
     if (!photo) return;
-    const { error } = await supabase().from("photos").delete().eq("id", id);
+    const client = await adminSupabase();
+    const { error } = await client.from("photos").delete().eq("id", id);
     if (error) throw new Error(`Failed to delete photo: ${error.message}`);
-    await supabase()
-      .storage.from(BUCKET)
+    await client.storage
+      .from(BUCKET)
       .remove([photo.imagePath])
       .catch(() => {});
   },
 
   async reorderPhotos(orderedIds: string[]): Promise<void> {
-    const { data, error: listError } = await supabase()
+    const client = await adminSupabase();
+    const { data, error: listError } = await client
       .from("photos")
       .select("id");
     if (listError) throw new Error(`Failed to list photos: ${listError.message}`);
     const count = (data as { id: string }[]).length;
     for (const [index, id] of orderedIds.entries()) {
-      const { error } = await supabase()
+      const { error } = await client
         .from("photos")
         .update({ sort_order: (count - index) * 10 })
         .eq("id", id);
