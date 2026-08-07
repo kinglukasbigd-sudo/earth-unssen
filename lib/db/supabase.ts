@@ -264,7 +264,7 @@ export const supabaseDb = {
       )
       .eq("id", 1)
       .maybeSingle();
-    if (error) throw new Error(`Failed to get settings: ${error.message}`);
+    if (error) return null;
     const settings = data as SettingsRow | null;
     if (!settings?.hero_image_path) return null;
     return settingsPhoto(
@@ -364,7 +364,7 @@ export const supabaseDb = {
       .select(INTRO_COLUMNS)
       .eq("id", 1)
       .maybeSingle();
-    if (error) throw new Error(`Failed to get settings: ${error.message}`);
+    if (error) return introBackgroundFrom(null);
     return introBackgroundFrom(data as Partial<SettingsRow> | null);
   },
 
