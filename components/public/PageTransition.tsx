@@ -50,7 +50,21 @@ export function PageTransition({
 
   return (
     <>
-      {children}
+      {reduce ? (
+        children
+      ) : (
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.25, ease: "easeIn" } }}
+            transition={{ duration: 0.35, ease: LABEL_EASE }}
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
+      )}
 
       <AnimatePresence>
         {active && (

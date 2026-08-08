@@ -1,7 +1,15 @@
 "use client";
 
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "motion/react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import type { MouseEvent } from "react";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from "motion/react";
 import type { Variants } from "motion/react";
 import type { Photo } from "@/lib/types";
 import { PhotoImage } from "@/components/public/PhotoImage";
@@ -29,19 +37,86 @@ const meta: Variants = {
   show: { opacity: 1, transition: { duration: 0.6, ease: EASE } },
 };
 
+const FINE_POINTER_QUERY = "(pointer: fine)";
+
+function subscribeFinePointer(onChange: () => void) {
+  const mq = window.matchMedia(FINE_POINTER_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function readFinePointer(): boolean {
+  return window.matchMedia(FINE_POINTER_QUERY).matches;
+}
+
 export function Hero({ cover, background }: HeroProps) {
   const ref = useRef<HTMLElement>(null);
+  const reduce = useReducedMotion();
+  const finePointer = useSyncExternalStore(
+    subscribeFinePointer,
+    readFinePointer,
+    () => false,
+  );
+  const [cursorActive, setCursorActive] = useState(false);
+  const cursorX = useMotionValue(0);
+  const cursorY = useMotionValue(0);
+  const cursorSpringX = useSpring(cursorX, {
+    stiffness: 250,
+    damping: 20,
+    mass: 0.4,
+  });
+  const cursorSpringY = useSpring(cursorY, {
+    stiffness: 250,
+    damping: 20,
+    mass: 0.4,
+  });
   const { scrollY } = useScroll();
   const bgY = useTransform(scrollY, [0, 900], [0, 220]);
   const contentY = useTransform(scrollY, [0, 500], [0, 70]);
   const contentOpacity = useTransform(scrollY, [0, 420], [1, 0]);
   const bg = background ?? cover;
 
+  const enableCursor = finePointer && !reduce;
+
+  function handleMouseEnter() {
+    if (enableCursor) setCursorActive(true);
+  }
+
+  function handleMouseMove(event: MouseEvent<HTMLElement>) {
+    if (!enableCursor) return;
+    cursorX.set(event.clientX);
+    cursorY.set(event.clientY);
+  }
+
+  function handleMouseLeave() {
+    setCursorActive(false);
+  }
+
   return (
     <section
       ref={ref}
       className="relative flex min-h-[100svh] flex-col justify-end overflow-hidden bg-ink"
+      style={{ cursor: enableCursor ? "none" : undefined }}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
+      {enableCursor && (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none fixed left-0 top-0 z-[60] -ml-5 -mt-5 size-10"
+          style={{ x: cursorSpringX, y: cursorSpringY }}
+          animate={{ opacity: cursorActive ? 1 : 0 }}
+          transition={{ duration: 0.25, ease: EASE }}
+        >
+          <div className="absolute inset-0 rounded-full border border-paper/40" />
+          <span className="absolute left-1/2 top-0 h-1.5 w-px -translate-x-1/2 bg-paper/70" />
+          <span className="absolute bottom-0 left-1/2 h-1.5 w-px -translate-x-1/2 bg-paper/70" />
+          <span className="absolute left-0 top-1/2 h-px w-1.5 -translate-y-1/2 bg-paper/70" />
+          <span className="absolute right-0 top-1/2 h-px w-1.5 -translate-y-1/2 bg-paper/70" />
+        </motion.div>
+      )}
+
       <motion.div className="absolute inset-0" style={{ y: bgY }}>
         {bg ? (
           <motion.div

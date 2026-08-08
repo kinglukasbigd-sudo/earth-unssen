@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
 import { SEASONS, seasonInfo } from "@/lib/seasons";
+import { Magnetic } from "@/components/public/Magnetic";
 
 const NAV_ITEMS = [
   ...SEASONS.map((season) => ({
@@ -18,6 +19,47 @@ const NAV_ITEMS = [
 function seasonOf(pathname: string): string | null {
   const match = pathname.match(/^\/seasons\/(winter|spring|summer|fall)$/);
   return match ? match[1] : null;
+}
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+function DesktopNavLink({
+  href,
+  label,
+  active,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <motion.div
+      className="group relative"
+      initial={false}
+      whileHover="hover"
+      whileFocus="hover"
+      animate={active ? "active" : "rest"}
+    >
+      <Link
+        href={href}
+        className="relative block py-1 text-[0.8rem] font-medium tracking-wide transition-opacity"
+      >
+        <span className={active ? "opacity-100" : "opacity-70 group-hover:opacity-100"}>
+          {label}
+        </span>
+        <motion.span
+          aria-hidden
+          className="absolute -bottom-0.5 left-0 right-0 h-px origin-center bg-current"
+          variants={{
+            rest: { scaleX: 0 },
+            hover: { scaleX: 1 },
+            active: { scaleX: 1 },
+          }}
+          transition={{ duration: 0.3, ease: EASE }}
+        />
+      </Link>
+    </motion.div>
+  );
 }
 
 export function Header() {
@@ -77,21 +119,13 @@ export function Header() {
                   ? pathname === "/about"
                   : activeSeason === item.href.replace("/seasons/", "");
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="group relative py-1 text-[0.8rem] font-medium tracking-wide transition-opacity"
-                >
-                  <span className={active ? "opacity-100" : "opacity-70 group-hover:opacity-100"}>
-                    {item.label}
-                  </span>
-                  <span
-                    aria-hidden
-                    className={`absolute -bottom-0.5 left-0 h-px bg-current transition-all duration-300 ${
-                      active ? "w-full" : "w-0 group-hover:w-full"
-                    }`}
+                <Magnetic key={item.href}>
+                  <DesktopNavLink
+                    href={item.href}
+                    label={item.label}
+                    active={active}
                   />
-                </Link>
+                </Magnetic>
               );
             })}
           </nav>
