@@ -7,6 +7,7 @@ import type {
   PhotoDraft,
   PhotoPatch,
   Season,
+  SeasonSettings,
 } from "@/lib/types";
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
@@ -20,9 +21,17 @@ interface LocalIntroSettings {
   color: string | null;
 }
 
+interface LocalSeasonSettings {
+  hero: LocalRecord | null;
+  coverPhotoId: string | null;
+  tagline: string | null;
+  description: string | null;
+}
+
 interface LocalSettings {
   hero: LocalRecord | null;
   intro: LocalIntroSettings;
+  seasons: Partial<Record<Season, LocalSeasonSettings>>;
 }
 
 function publicUrl(record: LocalRecord): string {
@@ -31,6 +40,34 @@ function publicUrl(record: LocalRecord): string {
 
 function toPhoto(record: LocalRecord): Photo {
   return { ...record, imageUrl: publicUrl(record) };
+}
+
+function emptySeasonSettings(): LocalSeasonSettings {
+  return { hero: null, coverPhotoId: null, tagline: null, description: null };
+}
+
+function emptyLocalSettings(): LocalSettings {
+  const seasons: Partial<Record<Season, LocalSeasonSettings>> = {};
+  for (const season of ["winter", "spring", "summer", "fall"] as const) {
+    seasons[season] = emptySeasonSettings();
+  }
+  return {
+    hero: null,
+    intro: { mode: "auto", photo: null, color: null },
+    seasons,
+  };
+}
+
+function normalizeSeasonSettings(
+  value: Partial<LocalSeasonSettings> | null | undefined,
+): LocalSeasonSettings {
+  if (!value) return emptySeasonSettings();
+  return {
+    hero: value.hero ?? null,
+    coverPhotoId: value.coverPhotoId ?? null,
+    tagline: value.tagline ?? null,
+    description: value.description ?? null,
+  };
 }
 
 async function readDb(): Promise<{
@@ -43,6 +80,10 @@ async function readDb(): Promise<{
       photos?: LocalRecord[];
       settings?: Partial<LocalSettings>;
     };
+    const seasons: Partial<Record<Season, LocalSeasonSettings>> = {};
+    for (const season of ["winter", "spring", "summer", "fall"] as const) {
+      seasons[season] = normalizeSeasonSettings(parsed.settings?.seasons?.[season]);
+    }
     return {
       photos: Array.isArray(parsed.photos) ? parsed.photos : [],
       settings: {
@@ -56,20 +97,15 @@ async function readDb(): Promise<{
           photo: parsed.settings?.intro?.photo ?? null,
           color: parsed.settings?.intro?.color ?? null,
         },
+        seasons,
       },
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return {
-        photos: [],
-        settings: { hero: null, intro: { mode: "auto", photo: null, color: null } },
-      };
+      return { photos: [], settings: emptyLocalSettings() };
     }
     console.error("[local-db] failed to read database:", error);
-    return {
-      photos: [],
-      settings: { hero: null, intro: { mode: "auto", photo: null, color: null } },
-    };
+    return { photos: [], settings: emptyLocalSettings() };
   }
 }
 
@@ -171,6 +207,10 @@ export const localDb = {
     const record = photos.find((r) => r.id === id);
     const next = photos.filter((r) => r.id !== id);
     if (next.length !== photos.length) {
+      for (const season of ["winter", "spring", "summer", "fall"] as const) {
+        const s = settings.seasons[season];
+        if (s?.coverPhotoId === id) s.coverPhotoId = null;
+      }
       await writeDb(next, settings);
       if (record) {
         await fs
@@ -308,6 +348,105 @@ export const localDb = {
         .catch(() => {});
     }
     settings.intro = { mode: "auto", photo: null, color: null };
+    await writeDb(photos, settings);
+  },
+
+  async getSeasonSettings(season: Season): Promise<SeasonSettings> {
+    const { settings } = await readDb();
+    const s = settings.seasons[season] ?? emptySeasonSettings();
+    return {
+      season,
+      hero: s.hero ? toPhoto(s.hero) : null,
+      coverPhotoId: s.coverPhotoId,
+      tagline: s.tagline,
+      description: s.description,
+    };
+  },
+
+  async getAllSeasonSettings(): Promise<SeasonSettings[]> {
+    const { settings } = await readDb();
+    return (Object.keys(settings.seasons) as Season[]).map((season) => {
+      const s = settings.seasons[season] ?? emptySeasonSettings();
+      return {
+        season,
+        hero: s.hero ? toPhoto(s.hero) : null,
+        coverPhotoId: s.coverPhotoId,
+        tagline: s.tagline,
+        description: s.description,
+      };
+    });
+  },
+
+  async setSeasonHero(season: Season, draft: PhotoDraft): Promise<Photo> {
+    const id = randomUUID();
+    const ext = MIME_EXT[draft.file.type] ?? "jpg";
+    const filename = `${season}-hero-${id}.${ext}`;
+
+    await fs.mkdir(UPLOADS_DIR, { recursive: true });
+    await fs.writeFile(
+      path.join(UPLOADS_DIR, filename),
+      Buffer.from(await draft.file.arrayBuffer()),
+    );
+
+    const record: LocalRecord = {
+      id,
+      season: "winter",
+      caption: "",
+      imagePath: filename,
+      width: draft.width,
+      height: draft.height,
+      blurDataUrl: draft.blurDataUrl,
+      sortOrder: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    const { photos, settings } = await readDb();
+    const current = settings.seasons[season] ?? emptySeasonSettings();
+    if (current.hero) {
+      await fs
+        .unlink(path.join(UPLOADS_DIR, current.hero.imagePath))
+        .catch(() => {});
+    }
+    settings.seasons[season] = { ...current, hero: record };
+    await writeDb(photos, settings);
+    return toPhoto(record);
+  },
+
+  async clearSeasonHero(season: Season): Promise<void> {
+    const { photos, settings } = await readDb();
+    const current = settings.seasons[season];
+    if (current?.hero) {
+      await fs
+        .unlink(path.join(UPLOADS_DIR, current.hero.imagePath))
+        .catch(() => {});
+    }
+    settings.seasons[season] = {
+      ...(current ?? emptySeasonSettings()),
+      hero: null,
+    };
+    await writeDb(photos, settings);
+  },
+
+  async setSeasonCover(season: Season, photoId: string | null): Promise<void> {
+    const { photos, settings } = await readDb();
+    settings.seasons[season] = {
+      ...(settings.seasons[season] ?? emptySeasonSettings()),
+      coverPhotoId: photoId,
+    };
+    await writeDb(photos, settings);
+  },
+
+  async updateSeasonText(
+    season: Season,
+    tagline: string | null,
+    description: string | null,
+  ): Promise<void> {
+    const { photos, settings } = await readDb();
+    settings.seasons[season] = {
+      ...(settings.seasons[season] ?? emptySeasonSettings()),
+      tagline,
+      description,
+    };
     await writeDb(photos, settings);
   },
 };

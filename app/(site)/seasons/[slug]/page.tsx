@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { SEASONS, seasonInfo, NEXT_SEASON, PREV_SEASON } from "@/lib/seasons";
-import { getPhotos } from "@/lib/data";
+import {
+  SEASONS,
+  seasonInfo,
+  resolveSeasonInfo,
+  NEXT_SEASON,
+  PREV_SEASON,
+} from "@/lib/seasons";
+import { getPhotos, getSeasonSettings } from "@/lib/data";
 import { SITE_URL } from "@/lib/env";
 import { SeasonHero } from "@/components/public/SeasonHero";
 import { PhotoEntry } from "@/components/public/PhotoEntry";
@@ -24,9 +30,15 @@ export async function generateMetadata({
   const { slug } = await params;
   if (!(SEASONS as readonly string[]).includes(slug)) return {};
   const season = slug as Season;
-  const info = seasonInfo(season);
-  const photos = await getPhotos(season);
-  const cover = photos[0];
+  const [photos, settings] = await Promise.all([
+    getPhotos(season),
+    getSeasonSettings(season),
+  ]);
+  const info = resolveSeasonInfo(season, settings);
+  const cover =
+    photos.find((photo) => photo.id === settings.coverPhotoId) ??
+    photos[0] ??
+    null;
 
   return {
     title: info.label,
@@ -49,15 +61,22 @@ export default async function SeasonPage({
 }) {
   const { slug } = await params;
   const season = slug as Season;
-  const info = seasonInfo(season);
-  const photos = await getPhotos(season);
-  const cover = photos[0] ?? null;
+  const [photos, settings] = await Promise.all([
+    getPhotos(season),
+    getSeasonSettings(season),
+  ]);
+  const info = resolveSeasonInfo(season, settings);
+  const cover =
+    photos.find((photo) => photo.id === settings.coverPhotoId) ??
+    photos[0] ??
+    null;
+  const background = settings.hero ?? cover;
   const prev = PREV_SEASON[season];
   const next = NEXT_SEASON[season];
 
   return (
     <div style={{ background: info.moodBg }}>
-      <SeasonHero season={season} count={photos.length} cover={cover} />
+      <SeasonHero info={info} count={photos.length} background={background} />
 
       {photos.length > 0 ? (
         <div className="container-feed flex flex-col gap-14 py-12 sm:gap-20 sm:py-16">

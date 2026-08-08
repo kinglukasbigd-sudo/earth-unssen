@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePathname } from "next/navigation";
+import type { Season } from "@/lib/types";
 import {
   LABEL_EASE,
   LIFT_EASE,
@@ -18,22 +19,28 @@ import {
  * to reveal the page. The very first paint is handled by <IntroCover />,
  * which uses the same choreography.
  */
-export function PageTransition({ children }: { children: React.ReactNode }) {
+export function PageTransition({
+  children,
+  seasonTaglines,
+}: {
+  children: React.ReactNode;
+  seasonTaglines?: Partial<Record<Season, string>> | null;
+}) {
   const pathname = usePathname();
   const reduce = useReducedMotion();
   const prev = useRef(pathname);
   const [active, setActive] = useState(false);
   const [look, setLook] = useState<TransitionLook>(() =>
-    lookForPath(pathname ?? "/"),
+    lookForPath(pathname ?? "/", seasonTaglines),
   );
 
   useEffect(() => {
     if (reduce) return;
     if (prev.current === pathname) return;
     prev.current = pathname;
-    setLook(lookForPath(pathname ?? "/"));
+    setLook(lookForPath(pathname ?? "/", seasonTaglines));
     setActive(true);
-  }, [pathname, reduce]);
+  }, [pathname, reduce, seasonTaglines]);
 
   useEffect(() => {
     if (!active || reduce) return;

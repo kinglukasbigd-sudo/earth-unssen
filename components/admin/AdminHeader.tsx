@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  CalendarDays,
   ExternalLink,
   Images,
   LayoutPanelTop,
@@ -17,6 +18,7 @@ const TABS = [
   { href: "/admin/upload", label: "Upload", icon: UploadCloud },
   { href: "/admin/start-screen", label: "Hero background", icon: LayoutPanelTop },
   { href: "/admin/intro-cover", label: "Intro cover", icon: MonitorPlay },
+  { href: "/admin/seasons", label: "Seasons", icon: CalendarDays },
 ];
 
 export function AdminHeader() {
@@ -35,7 +37,8 @@ export function AdminHeader() {
 
         <nav className="flex items-center gap-1 rounded-lg border border-hairline bg-white/50 p-1" aria-label="Admin">
           {TABS.map((tab) => {
-            const active = pathname === tab.href;
+            const active =
+              pathname === tab.href || pathname.startsWith(`${tab.href}/`);
             return (
               <Link
                 key={tab.href}

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import type { IntroBackground } from "@/lib/types";
+import type { IntroBackground, Season } from "@/lib/types";
 import {
   LABEL_EASE,
   LIFT_EASE,
@@ -19,11 +19,17 @@ import {
  * entrance on every cold load. The background can be a configured photo,
  * a configured colour, or the route's default accent.
  */
-export function IntroCover({ background }: { background: IntroBackground }) {
+export function IntroCover({
+  background,
+  seasonTaglines,
+}: {
+  background: IntroBackground;
+  seasonTaglines?: Partial<Record<Season, string>> | null;
+}) {
   const pathname = usePathname();
   const reduce = useReducedMotion();
   const [show, setShow] = useState(true);
-  const look = lookForPath(pathname ?? "/");
+  const look = lookForPath(pathname ?? "/", seasonTaglines);
   const photo = background.mode === "photo" ? background.photo : null;
   const bgColor =
     background.mode === "color" && background.color

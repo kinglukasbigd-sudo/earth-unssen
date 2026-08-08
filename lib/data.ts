@@ -1,9 +1,24 @@
 import { db } from "@/lib/db";
-import type { IntroBackground, Photo, Season } from "@/lib/types";
+import type {
+  IntroBackground,
+  Photo,
+  Season,
+  SeasonSettings,
+} from "@/lib/types";
 
 /** All photos, newest first. Optionally filtered by season. */
 export async function getPhotos(season?: Season): Promise<Photo[]> {
   return db.listPhotos(season);
+}
+
+/** Studio overrides for a single season (hero, cover, text). */
+export async function getSeasonSettings(season: Season): Promise<SeasonSettings> {
+  return db.getSeasonSettings(season);
+}
+
+/** Studio overrides for every season, in canonical order. */
+export async function getAllSeasonSettings(): Promise<SeasonSettings[]> {
+  return db.getAllSeasonSettings();
 }
 
 /** A curated set of the latest photos across all seasons. */

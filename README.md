@@ -89,7 +89,11 @@ Then run [`supabase/migrations/0002_hero_settings.sql`](supabase/migrations/0002
 the same way — it adds the `public.settings` row used for the studio's
 **Hero background** window — followed by
 [`0003_intro_settings.sql`](supabase/migrations/0003_intro_settings.sql),
-which adds the intro-cover background columns for the **Intro cover** window.
+which adds the intro-cover background columns for the **Intro cover** window,
+and finally
+[`0004_season_settings.sql`](supabase/migrations/0004_season_settings.sql),
+which adds the per-season page settings for the **Seasons** windows
+(hero photograph, cover, tagline, description).
 
 > The table and storage are intentionally *not* exposed through Supabase's
 > auto-generated REST endpoints (`*` privileges were not granted), so the public
@@ -144,7 +148,7 @@ pattern matching `**.supabase.co`; remove or tighten it if you prefer.
 ```
 app/
   (site)/              Public pages: home, seasons/[slug], about, 404
-  admin/               Studio: login + protected manage/upload pages
+  admin/               Studio: login + protected manage/upload/settings pages
   layout.tsx           Root layout (fonts, motion providers, metadata)
 proxy.ts               Edge guard — redirects /admin/* to /admin/login
 components/

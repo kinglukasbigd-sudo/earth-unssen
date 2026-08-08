@@ -6,13 +6,14 @@ import { Hero } from "@/components/public/home/Hero";
 import { Reveal } from "@/components/public/Reveal";
 import { PhotoEntry } from "@/components/public/PhotoEntry";
 import { SeasonCards } from "@/components/public/SeasonCards";
-import { getPhotos, getHeroBackground } from "@/lib/data";
+import { getAllSeasonSettings, getPhotos, getHeroBackground } from "@/lib/data";
 
 export default async function HomePage() {
   const photos = await getPhotos();
   const featured = photos.slice(0, 6);
   const cover = photos[0] ?? null;
   const heroBackground = await getHeroBackground();
+  const seasonSettings = await getAllSeasonSettings();
 
   const counts: Record<Season, number> = {
     winter: 0,
@@ -23,10 +24,16 @@ export default async function HomePage() {
   for (const photo of photos) counts[photo.season] += 1;
 
   const covers = Object.fromEntries(
-    SEASONS.map((season) => [
-      season,
-      photos.find((p) => p.season === season) ?? null,
-    ]),
+    SEASONS.map((season) => {
+      const pinnedId = seasonSettings.find((s) => s.season === season)
+        ?.coverPhotoId;
+      return [
+        season,
+        photos.find((p) => p.season === season && p.id === pinnedId) ??
+          photos.find((p) => p.season === season) ??
+          null,
+      ];
+    }),
   ) as Record<Season, Photo | null>;
 
   return (

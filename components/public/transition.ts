@@ -33,14 +33,17 @@ export interface TransitionLook {
 }
 
 /** The wordmark (and its colour) for a given route. */
-export function lookForPath(pathname: string): TransitionLook {
+export function lookForPath(
+  pathname: string,
+  seasonTaglines?: Partial<Record<Season, string>> | null,
+): TransitionLook {
   const match = pathname.match(/^\/seasons\/(winter|spring|summer|fall)$/);
   if (match) {
     const season = match[1] as Season;
     return {
       accent: SEASON_INFO[season].accent,
       label: SEASON_INFO[season].label,
-      sub: SEASON_INFO[season].tagline,
+      sub: seasonTaglines?.[season] ?? SEASON_INFO[season].tagline,
     };
   }
   return {

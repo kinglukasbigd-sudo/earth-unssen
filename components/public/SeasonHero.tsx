@@ -1,29 +1,27 @@
-import type { Photo, Season } from "@/lib/types";
-import { seasonInfo } from "@/lib/seasons";
+import type { Photo } from "@/lib/types";
+import type { SeasonInfo } from "@/lib/seasons";
 import { PhotoImage } from "@/components/public/PhotoImage";
 
 interface SeasonHeroProps {
-  season: Season;
+  info: SeasonInfo;
   count: number;
-  cover: Photo | null;
+  background: Photo | null;
 }
 
-export function SeasonHero({ season, count, cover }: SeasonHeroProps) {
-  const info = seasonInfo(season);
-
+export function SeasonHero({ info, count, background }: SeasonHeroProps) {
   return (
     <section
       className="relative overflow-hidden pb-14 pt-32 sm:pb-20 sm:pt-44"
       style={{ background: info.moodBg }}
     >
-      {cover && (
+      {background && (
         <>
           <div
             aria-hidden
             className="absolute inset-0 scale-110 opacity-[0.14] blur-2xl"
           >
             <PhotoImage
-              photo={cover}
+              photo={background}
               fill
               priority
               quality={40}

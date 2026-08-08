@@ -39,3 +39,16 @@ export interface IntroBackground {
   photo: Photo | null;
   color: string | null;
 }
+
+/** Per-season studio settings that override the designed defaults. */
+export interface SeasonSettings {
+  season: Season;
+  /** Dedicated photograph behind the season hero, or null to use the cover. */
+  hero: Photo | null;
+  /** Pinned cover photograph id, or null to use the newest photograph. */
+  coverPhotoId: string | null;
+  /** Tagline override; null keeps the designed tagline. */
+  tagline: string | null;
+  /** Editorial description override; null keeps the designed copy. */
+  description: string | null;
+}

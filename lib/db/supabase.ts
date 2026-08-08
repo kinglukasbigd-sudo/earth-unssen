@@ -2,12 +2,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/auth/supabase-server";
+import { SEASONS } from "@/lib/seasons";
 import type {
   IntroBackground,
   Photo,
   PhotoDraft,
   PhotoPatch,
   Season,
+  SeasonSettings,
 } from "@/lib/types";
 
 const BUCKET = "photos";
@@ -74,6 +76,17 @@ interface SettingsRow {
   intro_color: string | null;
 }
 
+interface SeasonSettingsRow {
+  season: Season;
+  hero_image_path: string | null;
+  hero_image_width: number | null;
+  hero_image_height: number | null;
+  hero_blur_data_url: string | null;
+  cover_photo_id: string | null;
+  tagline: string | null;
+  description: string | null;
+}
+
 function settingsPhoto(
   path: string,
   width: number,
@@ -91,6 +104,29 @@ function settingsPhoto(
     blurDataUrl,
     sortOrder: 0,
     createdAt: "",
+  };
+}
+
+const SEASON_SETTINGS_COLUMNS =
+  "season, hero_image_path, hero_image_width, hero_image_height, hero_blur_data_url, cover_photo_id, tagline, description";
+
+function toSeasonSettings(
+  season: Season,
+  row: Partial<SeasonSettingsRow> | null,
+): SeasonSettings {
+  return {
+    season,
+    hero: row?.hero_image_path
+      ? settingsPhoto(
+          row.hero_image_path,
+          row.hero_image_width ?? 2048,
+          row.hero_image_height ?? 1365,
+          row.hero_blur_data_url ?? "",
+        )
+      : null,
+    coverPhotoId: row?.cover_photo_id ?? null,
+    tagline: row?.tagline ?? null,
+    description: row?.description ?? null,
   };
 }
 
@@ -489,5 +525,144 @@ export const supabaseDb = {
         .remove([previousPath])
         .catch(() => {});
     }
+  },
+
+  async getSeasonSettings(season: Season): Promise<SeasonSettings> {
+    const { data, error } = await supabase()
+      .from("season_settings")
+      .select(SEASON_SETTINGS_COLUMNS)
+      .eq("season", season)
+      .maybeSingle();
+    if (error) {
+      return { season, hero: null, coverPhotoId: null, tagline: null, description: null };
+    }
+    return toSeasonSettings(season, data as Partial<SeasonSettingsRow> | null);
+  },
+
+  async getAllSeasonSettings(): Promise<SeasonSettings[]> {
+    const { data, error } = await supabase()
+      .from("season_settings")
+      .select(SEASON_SETTINGS_COLUMNS);
+    if (error) throw new Error(`Failed to list season settings: ${error.message}`);
+    const rows = (data as Partial<SeasonSettingsRow>[] | null) ?? [];
+    const bySeason = new Map(rows.map((row) => [row.season, row]));
+    return SEASONS.map((season) =>
+      toSeasonSettings(season, bySeason.get(season) ?? null),
+    );
+  },
+
+  async setSeasonHero(season: Season, draft: PhotoDraft): Promise<Photo> {
+    const ext = MIME_EXT[draft.file.type] ?? "jpg";
+    const objectPath = `season-${season}-${randomUUID()}.${ext}`;
+    const bytes = Buffer.from(await draft.file.arrayBuffer());
+    const client = await adminSupabase();
+
+    const { error: uploadError } = await client.storage
+      .from(BUCKET)
+      .upload(objectPath, bytes, {
+        contentType: draft.file.type || "image/jpeg",
+        upsert: false,
+      });
+    if (uploadError) {
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
+    }
+
+    const { data: previous, error: readError } = await client
+      .from("season_settings")
+      .select("hero_image_path")
+      .eq("season", season)
+      .maybeSingle();
+    if (readError) {
+      await client.storage.from(BUCKET).remove([objectPath]).catch(() => {});
+      throw new Error(`Failed to read season settings: ${readError.message}`);
+    }
+
+    const { error } = await client
+      .from("season_settings")
+      .upsert(
+        {
+          season,
+          hero_image_path: objectPath,
+          hero_image_width: draft.width,
+          hero_image_height: draft.height,
+          hero_blur_data_url: draft.blurDataUrl,
+        },
+        { onConflict: "season" },
+      );
+    if (error) {
+      await client.storage.from(BUCKET).remove([objectPath]).catch(() => {});
+      throw new Error(`Failed to save season hero: ${error.message}`);
+    }
+
+    const previousPath = (previous as Partial<SeasonSettingsRow> | null)
+      ?.hero_image_path;
+    if (previousPath && previousPath !== objectPath) {
+      await client.storage
+        .from(BUCKET)
+        .remove([previousPath])
+        .catch(() => {});
+    }
+
+    return settingsPhoto(
+      objectPath,
+      draft.width,
+      draft.height,
+      draft.blurDataUrl,
+    );
+  },
+
+  async clearSeasonHero(season: Season): Promise<void> {
+    const client = await adminSupabase();
+    const { data, error: readError } = await client
+      .from("season_settings")
+      .select("hero_image_path")
+      .eq("season", season)
+      .maybeSingle();
+    if (readError) {
+      throw new Error(`Failed to read season settings: ${readError.message}`);
+    }
+
+    const { error } = await client
+      .from("season_settings")
+      .upsert(
+        {
+          season,
+          hero_image_path: null,
+          hero_image_width: null,
+          hero_image_height: null,
+          hero_blur_data_url: null,
+        },
+        { onConflict: "season" },
+      );
+    if (error) throw new Error(`Failed to clear season hero: ${error.message}`);
+
+    const previousPath = (data as Partial<SeasonSettingsRow> | null)
+      ?.hero_image_path;
+    if (previousPath) {
+      await client.storage
+        .from(BUCKET)
+        .remove([previousPath])
+        .catch(() => {});
+    }
+  },
+
+  async setSeasonCover(season: Season, photoId: string | null): Promise<void> {
+    const client = await adminSupabase();
+    const { error } = await client
+      .from("season_settings")
+      .upsert({ season, cover_photo_id: photoId }, { onConflict: "season" });
+    if (error) throw new Error(`Failed to save season cover: ${error.message}`);
+  },
+
+  async updateSeasonText(
+    season: Season,
+    tagline: string | null,
+    description: string | null,
+  ): Promise<void> {
+    const client = await adminSupabase();
+    const { error } = await client
+      .from("season_settings")
+      .upsert({ season, tagline, description }, { onConflict: "season" });
+    if (error) throw new Error(`Failed to save season text: ${error.message}`);
   },
 };

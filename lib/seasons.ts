@@ -1,4 +1,4 @@
-import type { Season } from "@/lib/types";
+import type { Season, SeasonSettings } from "@/lib/types";
 
 export const SEASONS: Season[] = ["winter", "spring", "summer", "fall"];
 
@@ -74,6 +74,24 @@ export const SEASON_INFO: Record<Season, SeasonInfo> = {
 
 export function seasonInfo(season: Season): SeasonInfo {
   return SEASON_INFO[season];
+}
+
+/**
+ * The season's copy as shown on the site, falling back to the designed
+ * default whenever a studio override is empty.
+ */
+export function resolveSeasonInfo(
+  season: Season,
+  settings?: Pick<SeasonSettings, "tagline" | "description"> | null,
+): SeasonInfo {
+  const info = SEASON_INFO[season];
+  const tagline = settings?.tagline?.trim();
+  const description = settings?.description?.trim();
+  return {
+    ...info,
+    tagline: tagline ? tagline : info.tagline,
+    description: description ? description : info.description,
+  };
 }
 
 /** Returns the accent colour associated with a route path, if any. */
