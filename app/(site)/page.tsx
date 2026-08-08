@@ -93,9 +93,7 @@ export default async function HomePage() {
             </h2>
           </div>
         </Reveal>
-        <Reveal>
-          <SeasonCards covers={covers} counts={counts} />
-        </Reveal>
+        <SeasonCards covers={covers} counts={counts} />
         <Reveal delay={0.1}>
           <div className="mt-10 flex justify-center">
             <Link

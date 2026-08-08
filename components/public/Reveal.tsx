@@ -24,7 +24,7 @@ export function Reveal({
       className={className}
       initial={{ opacity: 0, y: reduce ? 0 : y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once, margin: "0px 0px -80px 0px" }}
+      viewport={{ once, amount: 0.2 }}
       transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1], delay }}
     >
       {children}

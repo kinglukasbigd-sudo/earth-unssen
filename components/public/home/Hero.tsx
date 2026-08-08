@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
+import type { Variants } from "motion/react";
 import type { Photo } from "@/lib/types";
 import { PhotoImage } from "@/components/public/PhotoImage";
 import { ScrollCue } from "@/components/public/ScrollCue";
@@ -12,6 +13,21 @@ interface HeroProps {
 }
 
 const EASE = [0.22, 1, 0.36, 1] as const;
+
+const textContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.15, delayChildren: 0.15 } },
+};
+
+const fadeUp = (y: number, duration: number): Variants => ({
+  hidden: { opacity: 0, y },
+  show: { opacity: 1, y: 0, transition: { duration, ease: EASE } },
+});
+
+const meta: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.6, ease: EASE } },
+};
 
 export function Hero({ cover, background }: HeroProps) {
   const ref = useRef<HTMLElement>(null);
@@ -30,9 +46,14 @@ export function Hero({ cover, background }: HeroProps) {
         {bg ? (
           <motion.div
             className="absolute inset-0"
-            initial={{ scale: 1.08 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 2.2, ease: EASE }}
+            initial={{ scale: 1 }}
+            animate={{ scale: 1.06 }}
+            transition={{
+              duration: 18,
+              ease: "easeInOut",
+              repeat: Infinity,
+              repeatType: "mirror",
+            }}
           >
             <PhotoImage
               photo={bg}
@@ -67,21 +88,20 @@ export function Hero({ cover, background }: HeroProps) {
       <motion.div
         className="container-site relative pb-24 pt-40 sm:pb-28"
         style={{ y: contentY, opacity: contentOpacity }}
+        variants={textContainer}
+        initial="hidden"
+        animate="show"
       >
         <motion.p
           className="eyebrow text-paper/75"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.7, ease: EASE }}
+          variants={fadeUp(14, 0.7)}
         >
           Landscape &amp; wildlife — photographed in the field
         </motion.p>
 
         <motion.h1
           className="mt-6 font-display text-hero text-paper"
-          initial={{ opacity: 0, y: 36 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.34, duration: 0.8, ease: EASE }}
+          variants={fadeUp(36, 0.8)}
         >
           Earth
           <span className="block italic text-paper/90">Unseen</span>
@@ -89,9 +109,7 @@ export function Hero({ cover, background }: HeroProps) {
 
         <motion.p
           className="mt-8 max-w-md text-base leading-relaxed text-paper/80 sm:text-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55, duration: 0.7, ease: EASE }}
+          variants={fadeUp(20, 0.7)}
         >
           A year of the natural world, photographed close to home. Four
           seasons, collected here as they unfold — quiet mornings, wild
@@ -100,9 +118,7 @@ export function Hero({ cover, background }: HeroProps) {
 
         <motion.p
           className="mt-8 text-xs uppercase tracking-[0.25em] text-paper/50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.75, duration: 0.6 }}
+          variants={meta}
         >
           Est. 2026 · Shot on camera &amp; phone
         </motion.p>

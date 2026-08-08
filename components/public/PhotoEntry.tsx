@@ -40,18 +40,20 @@ export function PhotoEntry({
 
   return (
     <article className="group/entry">
-      <button
+      <motion.button
         type="button"
         onClick={() => lightbox.open(photos, index)}
         aria-label={`View ${photo.caption || `photograph ${index + 1}`}`}
         className="relative block w-full cursor-zoom-in overflow-hidden rounded-lg bg-paper-deep"
+        whileHover={{ boxShadow: "0 30px 60px -30px rgba(0,0,0,0.28)" }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="relative aspect-[4/3] w-full">
           <motion.div
             className="absolute inset-0"
             initial={false}
-            whileHover={{ scale: 1.025 }}
-            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ scale: 1.04 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
             <PhotoImage
               photo={photo}
@@ -71,7 +73,7 @@ export function PhotoEntry({
         >
           <Expand className="size-4" />
         </span>
-      </button>
+      </motion.button>
 
       <div className="flex flex-col gap-2 pt-5 pb-2">
         <p className="font-display text-xl leading-snug sm:text-2xl">
