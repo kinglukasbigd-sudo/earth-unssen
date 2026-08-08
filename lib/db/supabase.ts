@@ -543,7 +543,9 @@ export const supabaseDb = {
     const { data, error } = await supabase()
       .from("season_settings")
       .select(SEASON_SETTINGS_COLUMNS);
-    if (error) throw new Error(`Failed to list season settings: ${error.message}`);
+    if (error) {
+      return SEASONS.map((season) => toSeasonSettings(season, null));
+    }
     const rows = (data as Partial<SeasonSettingsRow>[] | null) ?? [];
     const bySeason = new Map(rows.map((row) => [row.season, row]));
     return SEASONS.map((season) =>
