@@ -82,6 +82,20 @@ export default async function HomePage() {
             </div>
           </Reveal>
         )}
+
+        {photos.length > featured.length && (
+          <Reveal>
+            <div className="mt-16 flex justify-center">
+              <Link
+                href="/work"
+                className="group inline-flex items-center gap-2 rounded-full border border-hairline px-6 py-3 text-sm font-medium tracking-wide transition-colors hover:border-ink/40"
+              >
+                See all {photos.length} photographs
+                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </Reveal>
+        )}
       </section>
 
       <section id="seasons" className="container-site border-t border-hairline py-24 sm:py-32">
@@ -122,13 +136,22 @@ export default async function HomePage() {
               camera is in hand. No studios, no staging; just light, weather,
               and patience.
             </p>
-            <Link
-              href="/about"
-              className="group mt-6 inline-flex items-center gap-2 text-sm font-medium tracking-wide"
-            >
-              Read the story
-              <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </Link>
+            <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+              <Link
+                href="/about"
+                className="group inline-flex items-center gap-2 text-sm font-medium tracking-wide"
+              >
+                Read the story
+                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+              <Link
+                href="/contact"
+                className="group inline-flex items-center gap-2 text-sm font-medium tracking-wide"
+              >
+                Get in touch
+                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+            </div>
           </Reveal>
         </div>
       </section>

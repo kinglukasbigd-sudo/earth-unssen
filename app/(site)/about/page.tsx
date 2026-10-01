@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Camera, Phone } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Camera, Phone } from "lucide-react";
 import { SEASONS, seasonInfo } from "@/lib/seasons";
 import { SITE_URL } from "@/lib/env";
+import { getProfile } from "@/lib/data";
+import { bioParagraphs } from "@/lib/profile";
 import { Reveal } from "@/components/public/Reveal";
 
 export const metadata: Metadata = {
@@ -70,7 +72,15 @@ const INDEX = [
   { label: "Collections", value: "Four, by season" },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const profile = await getProfile();
+  const bio = bioParagraphs(profile.bio);
+  const index = [
+    ...(profile.name ? [{ label: "Photographer", value: profile.name }] : []),
+    ...(profile.location ? [{ label: "Based in", value: profile.location }] : []),
+    ...INDEX,
+  ];
+
   return (
     <>
       <section className="container-site pb-10 pt-36 sm:pt-44">
@@ -102,7 +112,7 @@ export default function AboutPage() {
             <div className="md:sticky md:top-32">
               <p className="eyebrow text-muted">Field index</p>
               <dl className="mt-6 divide-y divide-hairline border-y border-hairline">
-                {INDEX.map((item) => (
+                {index.map((item) => (
                   <div
                     key={item.label}
                     className="flex items-baseline justify-between gap-4 py-4"
@@ -118,6 +128,24 @@ export default function AboutPage() {
           </div>
 
           <div className="md:col-span-7 md:col-start-6">
+            {bio.length > 0 && (
+              <div className="mb-14">
+                <Reveal>
+                  <h2 className="font-display text-lg-display">
+                    {profile.name ? `About ${profile.name}` : "The photographer"}
+                  </h2>
+                </Reveal>
+                <Reveal delay={0.05}>
+                  <div className="mt-6 space-y-5 leading-relaxed text-muted">
+                    {bio.map((paragraph, i) => (
+                      <p key={i} className="whitespace-pre-line">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                </Reveal>
+              </div>
+            )}
             <Reveal>
               <h2 className="font-display text-lg-display">
                 How the work gets made
@@ -202,6 +230,26 @@ export default function AboutPage() {
             );
           })}
         </div>
+      </section>
+
+      <section className="container-site border-t border-hairline py-20 sm:py-28">
+        <Reveal>
+          <div className="flex flex-col gap-8 rounded-xl bg-paper-deep px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+            <div>
+              <p className="eyebrow text-muted">Work together</p>
+              <p className="mt-3 max-w-lg font-display text-lg-display">
+                {profile.availability || "Prints, licensing & commissions."}
+              </p>
+            </div>
+            <Link
+              href="/contact"
+              className="group inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-ink px-6 py-3 text-sm font-medium tracking-wide text-paper transition-colors hover:bg-ink/85 sm:self-auto"
+            >
+              Get in touch
+              <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+          </div>
+        </Reveal>
       </section>
 
       <section className="container-site border-t border-hairline py-20 text-center sm:py-28">

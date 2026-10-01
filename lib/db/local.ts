@@ -2,16 +2,21 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
+  ContactMessage,
+  ContactMessageDraft,
   IntroBackground,
   Photo,
   PhotoDraft,
   PhotoPatch,
+  Profile,
   Season,
   SeasonSettings,
 } from "@/lib/types";
+import { EMPTY_PROFILE, normalizeProfile } from "@/lib/profile";
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 const DB_FILE = path.join(process.cwd(), "data", "db.json");
+const MESSAGES_FILE = path.join(process.cwd(), "data", "messages.json");
 
 type LocalRecord = Omit<Photo, "imageUrl">;
 
@@ -32,6 +37,7 @@ interface LocalSettings {
   hero: LocalRecord | null;
   intro: LocalIntroSettings;
   seasons: Partial<Record<Season, LocalSeasonSettings>>;
+  profile: Profile;
 }
 
 function publicUrl(record: LocalRecord): string {
@@ -55,6 +61,7 @@ function emptyLocalSettings(): LocalSettings {
     hero: null,
     intro: { mode: "auto", photo: null, color: null },
     seasons,
+    profile: { ...EMPTY_PROFILE },
   };
 }
 
@@ -98,6 +105,7 @@ async function readDb(): Promise<{
           color: parsed.settings?.intro?.color ?? null,
         },
         seasons,
+        profile: normalizeProfile(parsed.settings?.profile),
       },
     };
   } catch (error) {
@@ -125,6 +133,25 @@ function sortRecords(records: LocalRecord[]): LocalRecord[] {
       b.sortOrder - a.sortOrder ||
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+}
+
+async function readMessages(): Promise<ContactMessage[]> {
+  try {
+    const parsed = JSON.parse(await fs.readFile(MESSAGES_FILE, "utf8"));
+    return Array.isArray(parsed) ? (parsed as ContactMessage[]) : [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error("[local-db] failed to read messages:", error);
+    }
+    return [];
+  }
+}
+
+async function writeMessages(messages: ContactMessage[]): Promise<void> {
+  await fs.mkdir(path.dirname(MESSAGES_FILE), { recursive: true });
+  const tmp = `${MESSAGES_FILE}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(messages, null, 2), "utf8");
+  await fs.rename(tmp, MESSAGES_FILE);
 }
 
 const MIME_EXT: Record<string, string> = {
@@ -448,5 +475,53 @@ export const localDb = {
       description,
     };
     await writeDb(photos, settings);
+  },
+
+  async getProfile(): Promise<Profile> {
+    const { settings } = await readDb();
+    return settings.profile;
+  },
+
+  async updateProfile(profile: Profile): Promise<void> {
+    const { photos, settings } = await readDb();
+    settings.profile = normalizeProfile(profile);
+    await writeDb(photos, settings);
+  },
+
+  async createMessage(draft: ContactMessageDraft): Promise<void> {
+    const messages = await readMessages();
+    messages.push({
+      id: randomUUID(),
+      ...draft,
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+    await writeMessages(messages);
+  },
+
+  /** Newest first. */
+  async listMessages(): Promise<ContactMessage[]> {
+    const messages = await readMessages();
+    return messages.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  },
+
+  async countUnreadMessages(): Promise<number> {
+    return (await readMessages()).filter((m) => !m.read).length;
+  },
+
+  async setMessageRead(id: string, read: boolean): Promise<void> {
+    const messages = await readMessages();
+    const message = messages.find((m) => m.id === id);
+    if (!message || message.read === read) return;
+    message.read = read;
+    await writeMessages(messages);
+  },
+
+  async deleteMessage(id: string): Promise<void> {
+    const messages = await readMessages();
+    const next = messages.filter((m) => m.id !== id);
+    if (next.length !== messages.length) await writeMessages(next);
   },
 };

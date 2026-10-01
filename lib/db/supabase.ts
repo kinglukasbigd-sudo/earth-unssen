@@ -3,11 +3,15 @@ import { randomUUID } from "node:crypto";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/auth/supabase-server";
 import { SEASONS } from "@/lib/seasons";
+import { EMPTY_PROFILE, normalizeProfile } from "@/lib/profile";
 import type {
+  ContactMessage,
+  ContactMessageDraft,
   IntroBackground,
   Photo,
   PhotoDraft,
   PhotoPatch,
+  Profile,
   Season,
   SeasonSettings,
 } from "@/lib/types";
@@ -151,6 +155,28 @@ function introBackgroundFrom(row: Partial<SettingsRow> | null): IntroBackground 
             row.intro_blur_data_url ?? "",
           )
         : null,
+  };
+}
+
+interface MessageRow {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
+function toMessage(row: MessageRow): ContactMessage {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    subject: row.subject,
+    message: row.message,
+    read: row.read,
+    createdAt: row.created_at,
   };
 }
 
@@ -666,5 +692,63 @@ export const supabaseDb = {
       .from("season_settings")
       .upsert({ season, tagline, description }, { onConflict: "season" });
     if (error) throw new Error(`Failed to save season text: ${error.message}`);
+  },
+
+  async getProfile(): Promise<Profile> {
+    const { data, error } = await supabase()
+      .from("settings")
+      .select("profile")
+      .eq("id", 1)
+      .maybeSingle();
+    // Missing column (migration 0005 not run yet) → the anonymous defaults.
+    if (error) return { ...EMPTY_PROFILE };
+    return normalizeProfile((data as { profile?: unknown } | null)?.profile);
+  },
+
+  async updateProfile(profile: Profile): Promise<void> {
+    const client = await adminSupabase();
+    const { error } = await client
+      .from("settings")
+      .update({ profile: normalizeProfile(profile) })
+      .eq("id", 1);
+    if (error) throw new Error(`Failed to save profile: ${error.message}`);
+  },
+
+  async createMessage(draft: ContactMessageDraft): Promise<void> {
+    // Anonymous insert: RLS allows visitors to add messages but never read them.
+    const { error } = await supabase().from("messages").insert(draft);
+    if (error) throw new Error(`Failed to save message: ${error.message}`);
+  },
+
+  async listMessages(): Promise<ContactMessage[]> {
+    const client = await adminSupabase();
+    const { data, error } = await client
+      .from("messages")
+      .select("id, name, email, subject, message, read, created_at")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(`Failed to list messages: ${error.message}`);
+    return (data as MessageRow[]).map(toMessage);
+  },
+
+  async countUnreadMessages(): Promise<number> {
+    const client = await adminSupabase();
+    const { count, error } = await client
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("read", false);
+    if (error) return 0;
+    return count ?? 0;
+  },
+
+  async setMessageRead(id: string, read: boolean): Promise<void> {
+    const client = await adminSupabase();
+    const { error } = await client.from("messages").update({ read }).eq("id", id);
+    if (error) throw new Error(`Failed to update message: ${error.message}`);
+  },
+
+  async deleteMessage(id: string): Promise<void> {
+    const client = await adminSupabase();
+    const { error } = await client.from("messages").delete().eq("id", id);
+    if (error) throw new Error(`Failed to delete message: ${error.message}`);
   },
 };
