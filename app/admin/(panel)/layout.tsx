@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import { isAdmin, isUsingDefaultPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -14,7 +14,10 @@ export default async function AdminPanelLayout({
 }) {
   if (!(await isAdmin())) redirect("/admin/login");
 
-  const unread = await db.countUnreadMessages().catch(() => 0);
+  const unread = await db.countUnreadMessages().catch((error: unknown) => {
+    unstable_rethrow(error);
+    return 0;
+  });
   const defaultPassword = isUsingDefaultPassword();
 
   return (

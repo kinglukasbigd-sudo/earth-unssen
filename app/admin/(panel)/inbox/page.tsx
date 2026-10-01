@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { db } from "@/lib/db";
 import type { ContactMessage } from "@/lib/types";
 import { MessageList } from "@/components/admin/MessageList";
@@ -8,6 +9,8 @@ export default async function InboxPage() {
   try {
     messages = await db.listMessages();
   } catch (error) {
+    // Let Next.js's own signals (e.g. dynamic rendering via cookies) through.
+    unstable_rethrow(error);
     console.error("[admin] inbox unavailable", error);
     unavailable = true;
   }
