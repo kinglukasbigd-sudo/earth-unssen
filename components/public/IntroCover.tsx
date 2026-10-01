@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import type { IntroBackground, Season } from "@/lib/types";
@@ -11,6 +11,7 @@ import {
   lookForPath,
   TRANSITION_TIMING,
 } from "@/components/public/transition";
+import { usePrefersReducedMotion } from "@/components/public/reduced-motion";
 
 /**
  * Full-screen cover shown on the very first paint. It matches the
@@ -27,7 +28,7 @@ export function IntroCover({
   seasonTaglines?: Partial<Record<Season, string>> | null;
 }) {
   const pathname = usePathname();
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const [show, setShow] = useState(true);
   const look = lookForPath(pathname ?? "/", seasonTaglines);
   const photo = background.mode === "photo" ? background.photo : null;

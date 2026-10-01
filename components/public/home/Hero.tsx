@@ -5,7 +5,6 @@ import type { MouseEvent } from "react";
 import {
   motion,
   useMotionValue,
-  useReducedMotion,
   useScroll,
   useSpring,
   useTransform,
@@ -14,6 +13,7 @@ import type { Variants } from "motion/react";
 import type { Photo } from "@/lib/types";
 import { PhotoImage } from "@/components/public/PhotoImage";
 import { ScrollCue } from "@/components/public/ScrollCue";
+import { usePrefersReducedMotion } from "@/components/public/reduced-motion";
 
 interface HeroProps {
   cover: Photo | null;
@@ -51,7 +51,7 @@ function readFinePointer(): boolean {
 
 export function Hero({ cover, background }: HeroProps) {
   const ref = useRef<HTMLElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const finePointer = useSyncExternalStore(
     subscribeFinePointer,
     readFinePointer,

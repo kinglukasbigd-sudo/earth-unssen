@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { usePrefersReducedMotion } from "@/components/public/reduced-motion";
 
 interface RevealProps {
   children: React.ReactNode;
@@ -18,7 +19,7 @@ export function Reveal({
   y = 28,
   once = true,
 }: RevealProps) {
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   return (
     <motion.div
       className={className}
