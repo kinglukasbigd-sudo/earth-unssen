@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
   SEASONS,
@@ -16,8 +17,9 @@ import { EmptyGallery } from "@/components/public/EmptyGallery";
 import { Reveal } from "@/components/public/Reveal";
 import type { Season } from "@/lib/types";
 
-export const dynamicParams = false;
-
+// Unknown slugs are rejected in the page with notFound(). Don't use
+// `dynamicParams = false` here: after revalidatePath() (every studio save)
+// Next.js then answers the prebuilt season pages with a 404.
 export function generateStaticParams() {
   return SEASONS.map((season) => ({ slug: season }));
 }
@@ -60,6 +62,7 @@ export default async function SeasonPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  if (!(SEASONS as readonly string[]).includes(slug)) notFound();
   const season = slug as Season;
   const [photos, settings] = await Promise.all([
     getPhotos(season),
