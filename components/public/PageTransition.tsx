@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { usePathname } from "next/navigation";
 import type { Season } from "@/lib/types";
 import {
@@ -11,6 +11,7 @@ import {
   TRANSITION_TIMING,
   type TransitionLook,
 } from "@/components/public/transition";
+import { usePrefersReducedMotion } from "@/components/public/reduced-motion";
 
 /**
  * Route-level transition for client-side navigation. On every route change
@@ -27,8 +28,9 @@ export function PageTransition({
   seasonTaglines?: Partial<Record<Season, string>> | null;
 }) {
   const pathname = usePathname();
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const prev = useRef(pathname);
+  const [firstPath] = useState(pathname);
   const [active, setActive] = useState(false);
   const [look, setLook] = useState<TransitionLook>(() =>
     lookForPath(pathname ?? "/", seasonTaglines),
@@ -50,21 +52,20 @@ export function PageTransition({
 
   return (
     <>
-      {reduce ? (
-        children
-      ) : (
-        <AnimatePresence initial={false}>
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, transition: { duration: 0.25, ease: "easeIn" } }}
-            transition={{ duration: 0.35, ease: LABEL_EASE }}
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
-      )}
+      {/* Same tree either way, so switching to reduced motion after
+          hydration doesn't remount the page. With reduced motion the key
+          stays fixed: pages swap in place instead of entering/exiting. */}
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={reduce ? firstPath : pathname}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.25, ease: "easeIn" } }}
+          transition={{ duration: 0.35, ease: LABEL_EASE }}
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
 
       <AnimatePresence>
         {active && (

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "motion/react";
 import { Expand } from "lucide-react";
 import type { Photo } from "@/lib/types";
@@ -77,7 +78,12 @@ export function PhotoEntry({
 
       <div className="flex flex-col gap-2 pt-5 pb-2">
         <p className="font-display text-xl leading-snug sm:text-2xl">
-          {photo.caption || <span className="italic text-muted">Untitled</span>}
+          <Link
+            href={`/photos/${photo.id}`}
+            className="decoration-1 underline-offset-[6px] hover:underline"
+          >
+            {photo.caption || <span className="italic text-muted">Untitled</span>}
+          </Link>
         </p>
         <div className="flex items-baseline justify-between gap-4 text-xs text-muted">
           <span className="uppercase tracking-[0.22em]">

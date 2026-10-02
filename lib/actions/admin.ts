@@ -3,9 +3,15 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { isAdmin, loginAdmin, logoutAdmin } from "@/lib/auth";
+import {
+  changeAdminPassword,
+  isAdmin,
+  loginAdmin,
+  logoutAdmin,
+} from "@/lib/auth";
 import { SEASONS } from "@/lib/seasons";
-import type { Photo, PhotoDraft, PhotoPatch, Season } from "@/lib/types";
+import { EMAIL_PATTERN, normalizeProfile } from "@/lib/profile";
+import type { Photo, PhotoDraft, PhotoPatch, Profile, Season } from "@/lib/types";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_CAPTION = 280;
@@ -363,5 +369,83 @@ export async function reorderPhotosAction(
   } catch (error) {
     console.error("[admin] reorder failed", error);
     return { ok: false, error: "Could not save the new order." };
+  }
+}
+
+export async function updateProfileAction(
+  input: Profile,
+): Promise<{ ok: boolean; error?: string; profile?: Profile }> {
+  try {
+    await requireAdmin();
+    const profile = normalizeProfile(input);
+    if (profile.email && !EMAIL_PATTERN.test(profile.email)) {
+      return { ok: false, error: "That email address doesn’t look right." };
+    }
+    await db.updateProfile(profile);
+    revalidateSite();
+    return { ok: true, profile };
+  } catch (error) {
+    console.error("[admin] profile update failed", error);
+    return { ok: false, error: "Could not save the profile." };
+  }
+}
+
+export async function setMessageReadAction(
+  id: string,
+  read: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    if (typeof id !== "string" || typeof read !== "boolean") {
+      return { ok: false, error: "Invalid message." };
+    }
+    await db.setMessageRead(id, read);
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  } catch (error) {
+    console.error("[admin] message update failed", error);
+    return { ok: false, error: "Could not update the message." };
+  }
+}
+
+export async function deleteMessageAction(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    if (typeof id !== "string") return { ok: false, error: "Invalid message." };
+    await db.deleteMessage(id);
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  } catch (error) {
+    console.error("[admin] message delete failed", error);
+    return { ok: false, error: "Could not delete the message." };
+  }
+}
+
+export interface PasswordState {
+  ok?: boolean;
+  error?: string;
+}
+
+export async function changePasswordAction(
+  _prev: PasswordState,
+  formData: FormData,
+): Promise<PasswordState> {
+  await requireAdmin();
+  const current = String(formData.get("current") ?? "");
+  const next = String(formData.get("next") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (next !== confirm) {
+    return { error: "The new passwords don’t match." };
+  }
+  try {
+    const result = await changeAdminPassword(current, next);
+    if (!result.ok) return { error: result.error ?? "Could not change the password." };
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  } catch (error) {
+    console.error("[admin] password change failed", error);
+    return { error: "Could not change the password." };
   }
 }

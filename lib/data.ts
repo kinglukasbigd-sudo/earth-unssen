@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import type {
   IntroBackground,
   Photo,
+  Profile,
   Season,
   SeasonSettings,
 } from "@/lib/types";
@@ -54,4 +55,14 @@ export async function getSeasonCounts(): Promise<Record<Season, number>> {
   };
   for (const photo of all) counts[photo.season] += 1;
   return counts;
+}
+
+/** The photographer's public profile (name, bio, contact links). */
+export async function getProfile(): Promise<Profile> {
+  return db.getProfile();
+}
+
+/** A single photograph by id, or null if it doesn't exist. */
+export async function getPhoto(id: string): Promise<Photo | null> {
+  return db.getPhoto(id);
 }

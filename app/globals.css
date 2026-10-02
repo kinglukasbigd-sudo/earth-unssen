@@ -94,6 +94,11 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The intro cover is skipped for reduced motion (see IntroCover). */
+  #intro-cover {
+    display: none;
+  }
+
   *,
   *::before,
   *::after {

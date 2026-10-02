@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # local backend data + uploaded media
-/data/db.json
+/data/
 /public/uploads/
 
 # local environment (keep .env.example committed)

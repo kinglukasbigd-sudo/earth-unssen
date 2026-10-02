@@ -4,16 +4,17 @@ import { Footer } from "@/components/public/Footer";
 import { PageTransition } from "@/components/public/PageTransition";
 import { LightboxProvider } from "@/components/public/lightbox";
 import { IntroCover } from "@/components/public/IntroCover";
-import { getAllSeasonSettings, getIntroBackground } from "@/lib/data";
+import { getAllSeasonSettings, getIntroBackground, getProfile } from "@/lib/data";
 import type { Season } from "@/lib/types";
 
 // Public pages refresh automatically after admin changes (see lib/actions/admin).
 export const revalidate = 120;
 
 export default async function SiteLayout({ children }: { children: ReactNode }) {
-  const [introBackground, seasonSettings] = await Promise.all([
+  const [introBackground, seasonSettings, profile] = await Promise.all([
     getIntroBackground(),
     getAllSeasonSettings(),
+    getProfile(),
   ]);
 
   const seasonTaglines = Object.fromEntries(
@@ -37,7 +38,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
           <PageTransition seasonTaglines={seasonTaglines}>{children}</PageTransition>
         </LightboxProvider>
       </main>
-      <Footer />
+      <Footer profile={profile} />
     </div>
   );
 }

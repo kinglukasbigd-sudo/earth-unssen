@@ -52,3 +52,40 @@ export interface SeasonSettings {
   /** Editorial description override; null keeps the designed copy. */
   description: string | null;
 }
+
+/** Public details about the photographer, edited in the studio. */
+export interface Profile {
+  /** Photographer's name; empty keeps the site anonymous. */
+  name: string;
+  /** Where the work is based, e.g. "Peak District, UK". */
+  location: string;
+  /** Biography; blank lines separate paragraphs. */
+  bio: string;
+  /** Public contact email, shown on the contact page. */
+  email: string;
+  /** Instagram handle or profile URL. */
+  instagram: string;
+  /** Any other link (portfolio, shop, blog…). */
+  website: string;
+  /** Short note on what the photographer is open to, e.g. prints or commissions. */
+  availability: string;
+}
+
+/** A message sent through the public contact form. */
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  read: boolean;
+  /** ISO 8601 timestamp. */
+  createdAt: string;
+}
+
+export interface ContactMessageDraft {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}

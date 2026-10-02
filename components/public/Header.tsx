@@ -9,11 +9,13 @@ import { SEASONS, seasonInfo } from "@/lib/seasons";
 import { Magnetic } from "@/components/public/Magnetic";
 
 const NAV_ITEMS = [
+  { href: "/work", label: "Work" },
   ...SEASONS.map((season) => ({
     href: `/seasons/${season}`,
     label: seasonInfo(season).label,
   })),
   { href: "/about", label: "About" },
+  { href: "/contact", label: "Contact" },
 ];
 
 function seasonOf(pathname: string): string | null {
@@ -114,10 +116,9 @@ export function Header() {
 
           <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
             {NAV_ITEMS.map((item) => {
-              const active =
-                item.href === "/about"
-                  ? pathname === "/about"
-                  : activeSeason === item.href.replace("/seasons/", "");
+              const active = item.href.startsWith("/seasons/")
+                ? activeSeason === item.href.replace("/seasons/", "")
+                : pathname === item.href;
               return (
                 <Magnetic key={item.href}>
                   <DesktopNavLink
@@ -156,7 +157,7 @@ export function Header() {
                 <span className="italic opacity-70">Unseen</span>
               </span>
             </div>
-            <nav className="container-site flex flex-1 flex-col justify-center gap-1 py-10" aria-label="Mobile">
+            <nav className="container-site flex flex-1 flex-col justify-center gap-1 overflow-y-auto py-8" aria-label="Mobile">
               {NAV_ITEMS.map((item, i) => (
                 <motion.div
                   key={item.href}
@@ -167,9 +168,9 @@ export function Header() {
                   <Link
                     href={item.href}
                     onClick={closeMenu}
-                    className="group flex items-baseline justify-between border-b border-hairline py-4"
+                    className="group flex items-baseline justify-between border-b border-hairline py-3 sm:py-4"
                   >
-                    <span className="font-display text-4xl tracking-tight sm:text-5xl">
+                    <span className="font-display text-3xl tracking-tight sm:text-5xl">
                       {item.label}
                     </span>
                     <span className="text-xs uppercase tracking-[0.25em] text-muted">

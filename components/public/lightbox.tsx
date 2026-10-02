@@ -8,8 +8,9 @@ import {
   useMemo,
   useState,
 } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { Photo } from "@/lib/types";
 import { seasonInfo } from "@/lib/seasons";
 import { PhotoImage } from "@/components/public/PhotoImage";
@@ -155,9 +156,19 @@ export function LightboxProvider({ children }: { children: React.ReactNode }) {
                   {seasonInfo(current.season).label}
                 </p>
               </div>
-              <p className="shrink-0 text-xs tabular-nums tracking-widest text-paper/50">
-                {String(index + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
-              </p>
+              <div className="flex shrink-0 items-center gap-4">
+                <p className="text-xs tabular-nums tracking-widest text-paper/50">
+                  {String(index + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
+                </p>
+                <Link
+                  href={`/photos/${current.id}`}
+                  onClick={close}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-paper/10 px-3 py-1.5 text-xs tracking-wide text-paper transition hover:bg-paper/20"
+                >
+                  Details
+                  <ArrowUpRight className="size-3.5" />
+                </Link>
+              </div>
             </motion.div>
           </motion.div>
         )}
